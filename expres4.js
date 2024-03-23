@@ -57,36 +57,29 @@ app.get('/', (req, res) => {
 
 // Login endpoint
 app.post('/login', async (req, res) => {
-    const { user_id, password } = req.body;
-    const usersCollection = client.db('ckmdb').collection('users');
-
-    // Check if user_id and password pair exists in database
-    const user = await usersCollection.findOne({ user_id, password });
-
-    if (user) {
-        // Generate authentication cookie
-        res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
-        res.send('Login successful!<br><a href="/cookies">View active cookies</a>');
-    } else {
-        res.send('Invalid user_id or password. <a href="/">Go back</a>');
-    }
-});
-
-// Register endpoint
-app.post('/login', async (req, res) => {
-  const { UserID, Password } = req.body;
+  const { UserName, Password } = req.body;
   const usersCollection = client.db('ckmdb').collection('User');
 
   // Check if the user exists in the database
-  const user = await usersCollection.findOne({ UserID, Password });
+  const user = await usersCollection.findOne({ UserName, Password });
 
   if (user) {
       // Generate authentication cookie
       res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
       res.send('Login successful!<br><a href="/cookies">View active cookies</a>');
   } else {
-      res.send('Invalid UserID or Password. <a href="/">Go back</a>');
+      res.send('Invalid UserName or Password. <a href="/">Go back</a>');
   }
+});
+
+// Register endpoint
+app.post('/register', async (req, res) => {
+  const { UserName, Password } = req.body;
+  const usersCollection = client.db('ckmdb').collection('User');
+
+  // Insert new user into database
+  await usersCollection.insertOne({ UserName, Password });
+  res.send('Registration successful!<br><a href="/">Go back to login</a>');
 });
 
 // Route to display active cookies
