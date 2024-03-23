@@ -9,15 +9,15 @@ const port = 3000;
 const uri = "mongodb+srv://UserNew:NewUser228@divail.myqfgb2.mongodb.net/?retryWrites=true&w=majority&appName=Divail";
 
 // Initialize MongoClient
-const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+const client = new MongoClient(uri);
 
 // Connect to MongoDB
 client.connect(err => {
-    if (err) {
-        console.error('Error connecting to MongoDB:', err);
-        return;
-    }
-    console.log('Connected to MongoDB');
+  if (err) {
+      console.error('Error connecting to MongoDB:', err);
+      return;
+  }
+  console.log('Connected to MongoDB');
 });
 
 // Use body-parser middleware
@@ -73,13 +73,20 @@ app.post('/login', async (req, res) => {
 });
 
 // Register endpoint
-app.post('/register', async (req, res) => {
-    const { user_id, password } = req.body;
-    const usersCollection = client.db('ckmdb').collection('users');
+app.post('/login', async (req, res) => {
+  const { UserID, Password } = req.body;
+  const usersCollection = client.db('ckmdb').collection('User');
 
-    // Insert new user into database
-    await usersCollection.insertOne({ user_id, password });
-    res.send('Registration successful!<br><a href="/">Go back to login</a>');
+  // Check if the user exists in the database
+  const user = await usersCollection.findOne({ UserID, Password });
+
+  if (user) {
+      // Generate authentication cookie
+      res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
+      res.send('Login successful!<br><a href="/cookies">View active cookies</a>');
+  } else {
+      res.send('Invalid UserID or Password. <a href="/">Go back</a>');
+  }
 });
 
 // Route to display active cookies
