@@ -37,18 +37,18 @@ app.get('/', (req, res) => {
         res.send(`
             <h2>Login or Register</h2>
             <form action="/login" method="post">
-                <label for="UserName">User ID:</label><br>
-                <input type="text" id="user_id" name="user_id" required><br>
+                <label for="UserName">User Name:</label><br>
+                <input type="text" id="UserName" name="UserName" required><br>
                 <label for="Password">Password:</label><br>
-                <input type="password" id="password" name="password" required><br><br>
+                <input type="password" id="Password" name="Password" required><br><br>
                 <input type="submit" value="Login">
             </form>
             <br>
             <form action="/register" method="post">
-                <label for="UserName">Desired User ID:</label><br>
-                <input type="text" id="user_id" name="user_id" required><br>
+                <label for="UserName">Desired User Name:</label><br>
+                <input type="text" id="UserName" name="UserName" required><br>
                 <label for="Password">Desired Password:</label><br>
-                <input type="password" id="password" name="password" required><br><br>
+                <input type="password" id="Password" name="Password" required><br><br>
                 <input type="submit" value="Register">
             </form>
         `);
