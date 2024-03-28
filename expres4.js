@@ -57,14 +57,22 @@ app.get('/', (req, res) => {
 
 // Register endpoint
 app.post('/register', async (req, res) => {
-  const { UserName, Password } = req.body;
-  console.log("Received registration request:", { UserName, Password }); // Log the received data
-  const usersCollection = client.db('ckmdb').collection('User');
+    const { UserName, Password } = req.body;
+    console.log("Received registration request:", { UserName, Password }); // Log the received data
+    const usersCollection = client.db('ckmdb').collection('User');
 
-  // Insert new user into database
-  await usersCollection.insertOne({ UserName, Password });
-  console.log("User registered successfully:", { UserName, Password }); // Log successful registration
-  res.send('Registration successful!<br><a href="/">Go back to login</a>');
+    // Check if the user already exists in the database
+    const existingUser = await usersCollection.findOne({ UserName });
+
+    if (existingUser) {
+        // If the user already exists, send a message indicating registration is not possible
+        res.send('Registration failed. User already exists. <a href="/">Go back</a>');
+    } else {
+        // If the user does not exist, insert the new user into the database
+        await usersCollection.insertOne({ UserName, Password });
+        console.log("User registered successfully:", { UserName, Password }); // Log successful registration
+        res.send('Registration successful!<br><a href="/">Go back to login</a>');
+    }
 });
 
 // Login endpoint
