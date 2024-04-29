@@ -158,8 +158,8 @@ app.get('/add-topic', (req, res) => {
 
 // Route to display a specific topic with its comments
 app.get('/topic/:topicId', async (req, res) => {
-    const { topicId } = req.params;
-    const topicName = `Topic ${topicId}`;
+    const { id } = req.params;
+    const topicName = topic.name;
     res.send(`<h2>${topicName}</h2>`);
 });
 
