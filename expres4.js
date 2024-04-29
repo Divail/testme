@@ -97,19 +97,44 @@ app.post('/login', async (req, res) => {
 
 // Route to display topics/message threads
 app.get('/topics', (req, res) => {
-    // Render the topics page with appropriate content
+    const topics = [
+        { id: 1, name: 'Topic 1' },
+        { id: 2, name: 'Topic 2' },
+        { id: 3, name: 'Topic 3' }
+    ];
+
+    // Render the topics page with dynamic links to each topic's page and a button to add a new topic
+    let topicsList = '<h2>Message Threads</h2><ul>';
+    topics.forEach(topic => {
+        topicsList += `<li><a href="/topic/${topic.id}">${topic.name}</a></li>`;
+    });
+    topicsList += '</ul>';
+    topicsList += '<button onclick="location.href=\'/add-topic\'">Add New Topic</button>'; // Button to add a new topic
+    topicsList += '<br><a href="/">Logout</a>';
+    res.send(topicsList);
+});
+
+// Route to display a form for adding a new topic
+app.get('/add-topic', (req, res) => {
+    // Render a form for adding a new topic
     res.send(`
-        <h2>Message Threads</h2>
-        <ul>
-            <li><a href="/topic/1">Topic 1</a></li>
-            <li><a href="/topic/2">Topic 2</a></li>
-            <li><a href="/topic/3">Topic 3</a></li>
-            <!-- Add more topics as needed -->
-        </ul>
-        <a href="/">Logout</a>
+        <h2>Add New Topic</h2>
+        <form action="/add-topic" method="post">
+            <label for="topicName">Topic Name:</label><br>
+            <input type="text" id="topicName" name="topicName" required><br><br>
+            <input type="submit" value="Add Topic">
+        </form>
+        <br><a href="/topics">Back to Topics</a>
     `);
 });
 
+// Route to handle adding a new topic
+app.post('/add-topic', (req, res) => {
+    const { topicName } = req.body;
+    // Logic to add the new topic to the database (you need to implement this)
+    // After adding the topic, you can redirect the user back to the topics page
+    res.redirect('/topics');
+});
 
 // Start server
 app.listen(port, () => {
