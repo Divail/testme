@@ -159,8 +159,23 @@ app.get('/add-topic', (req, res) => {
 app.get('/topic/:id', (req, res) => {
     const { id } = req.params;
     const topicName = `Topic ${id}`;
-    res.send(`<h2>${topicName}</h2>`);
+    res.send(`
+        <h2>${topicName}</h2>
+        <form action="/topic/${id}" method="post">
+            <label for="message">Enter your message:</label><br>
+            <input type="text" id="message" name="message" required><br><br>
+            <input type="submit" value="Send Message">
+        </form>
+    `);
 });
+
+// Route to handle sending a message to a specific topic
+app.post('/topic/:id', (req, res) => {
+    const { id } = req.params;
+    const { message } = req.body;
+    res.send(`<h2>Message sent to Topic ${id}:</h2><p>${message}</p>`);
+});
+
 
 // Start server
 app.listen(port, () => {
