@@ -158,24 +158,9 @@ app.get('/add-topic', (req, res) => {
 
 // Route to display a specific topic with its comments
 app.get('/topic/:topicId', async (req, res) => {
-    const { topicId } = req.params;
-
-    try {
-        // Query the database for the topic details
-        const topic = await Topic.findById(topicId);
-        if (!topic) {
-            return res.status(404).send('Topic not found');
-        }
-
-        // Query the database for comments associated with the topic
-        const comments = await Comment.find({ topicId }).populate('userId');
-
-        // Render the topic page with its details and comments
-        res.render('topic', { topic, comments });
-    } catch (error) {
-        console.error('Error fetching topic and comments:', error);
-        res.status(500).send('An error occurred while fetching topic and comments.');
-    }
+    const { id, name } = req.params;
+    const topicName = `Topic ${name}`;
+    res.send(`<h2>${topicName}</h2>`);
 });
 
 // Define a schema for comments
