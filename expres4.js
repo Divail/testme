@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const { MongoClient } = require("mongodb");
+const Message = require('./models/Message');
 const app = express();
 const port = 3000;
 
@@ -141,20 +142,6 @@ app.get('/topics', async (req, res) => {
     res.send(topicsList);
 });
 
-// Route to display a form for adding a new topic
-app.get('/add-topic', (req, res) => {
-    // Render a form for adding a new topic
-    res.send(`
-        <h2>Add New Topic</h2>
-        <form action="/add-topic" method="post">
-            <label for="topicName">Topic Name:</label><br>
-            <input type="text" id="topicName" name="topicName" required><br><br>
-            <input type="submit" value="Add Topic">
-        </form>
-        <br><a href="/topics">Back to Topics</a>
-    `);
-});
-
 // Route to display a specific topic/message thread
 app.get('/topic/:id', (req, res) => {
     const { id } = req.params;
@@ -169,13 +156,55 @@ app.get('/topic/:id', (req, res) => {
     `);
 });
 
-// Route to handle sending a message to a specific topic
-app.post('/topic/:id', (req, res) => {
+// Route to display a specific topic/message thread
+app.get('/topic/:id', async (req, res) => {
     const { id } = req.params;
-    const { message } = req.body;
-    res.send(`<h2>Message sent to Topic ${id}:</h2><p>${message}</p>`);
+    const topicName = `Topic ${id}`;
+
+    try {
+        // Query the database for messages related to the specific topic
+        const messages = await Message.find({ topicId: id }).populate('userId');
+
+        // Render the topic page with the retrieved messages
+        let topicPage = `<h2>${topicName}</h2>`;
+        messages.forEach(message => {
+            const userName = message.userId.UserName;
+            const messageText = message.message;
+            topicPage += `<p>${userName}: ${messageText}</p>`;
+        });
+        topicPage += `
+            <form action="/topic/${id}" method="post">
+                <label for="message">Enter your message:</label><br>
+                <input type="text" id="message" name="message" required><br><br>
+                <input type="submit" value="Send Message">
+            </form>
+        `;
+        res.send(topicPage);
+    } catch (error) {
+        console.error('Error fetching messages:', error);
+        res.status(500).send('An error occurred while fetching messages.');
+    }
 });
 
+// Route to handle sending a message to a specific topic
+app.post('/topic/:id', async (req, res) => {
+    const { id } = req.params;
+    const { message } = req.body;
+
+    try {
+        // Logic to save the message in the database
+        const newMessage = new Message({
+            userId: req.user._id, // Assuming you have the authenticated user available in req.user
+            topicId: id,
+            message: message
+        });
+        await newMessage.save();
+        res.redirect(`/topic/${id}`); // Redirect back to the topic page after sending the message
+    } catch (error) {
+        console.error('Error saving message:', error);
+        res.status(500).send('An error occurred while saving the message.');
+    }
+});
 
 // Start server
 app.listen(port, () => {
