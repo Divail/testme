@@ -81,7 +81,7 @@ class User {
     }
 
     notify(message) {
-        console.log(`Received message: ${message} as ${this.UserName}`);
+        console.log(`Received message: ${message.content} as ${this.UserName}`);
         // Implement what should happen when a user receives a message
     }
 }
@@ -141,14 +141,48 @@ class UserController {
             res.cookie('auth', user.UserName, { maxAge: 60000 }); // Expiring in 1 minute
             console.log("Login successful:", { UserName, Password }); // Log successful login
             res.redirect('/');
+            return user;
         } else {
             console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
             res.send('Invalid UserName or Password. <a href="/">Go back</a>');
+            return null;
         }
     }
 }
 
+// Model - Message
+class Message {
+    constructor(content, sender) {
+        this.content = content;
+        this.sender = sender;
+        this.timestamp = new Date();
+    }
+}
+
+// Controller - MessageController
+class MessageController {
+    postMessage(user, topicName, messageContent) {
+        const topic = topicController.getAllTopics().find(topic => topic.name === topicName);
+        if (topic) {
+            const message = new Message(messageContent, user.UserName);
+            topic.postMessage(message);
+        } else {
+            console.log('Topic not found while posting message');
+        }
+    }
+
+    getRecentMessages(user) {
+        const subscribedTopics = topicController.getSubscribedTopics(user);
+        const recentMessages = {};
+        subscribedTopics.forEach(topic => {
+            recentMessages[topic.name] = topic.getRecentMessages();
+        });
+        return recentMessages;
+    }
+}
+
 const topicController = new TopicController();
+const messageController = new MessageController();
 
 // Use body-parser middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -161,20 +195,45 @@ app.get('/', async (req, res) => {
     // Check for authentication cookie
     if (req.cookies.auth) {
         // Authentication cookie exists
-        const topics = topicController.getAllTopics();
-        const user = await getUserFromDatabase(req); // get the user from the database
-        const subscribedTopics = topicController.getSubscribedTopics(user);
-        res.send(`
-            <h2>Welcome ${user.UserName}!</h2>
-            <h3>Subscribed Topics:</h3>
-            <ul>
-                ${subscribedTopics.map(topic => `<li>${topic.name} <a href="/unsubscribe/${topic.name}">(Unsubscribe)</a></li>`).join('')}
-            </ul>
-            <h3>All Topics:</h3>
-            <ul>
-                ${topics.map(topic => `<li>${topic.name} <a href="/subscribe/${topic.name}">(Subscribe)</a></li>`).join('')}
-            </ul>
-        `);
+        const userController = new UserController();
+        const user = await userController.login(req, res);
+        if (user) {
+            const recentMessages = messageController.getRecentMessages(user);
+            const topics = topicController.getAllTopics();
+            const subscribedTopics = topicController.getSubscribedTopics(user);
+            res.send(`
+                <h2>Welcome ${user.UserName}!</h2>
+                <h3>Subscribed Topics:</h3>
+                <ul>
+                    ${subscribedTopics.map(topic => `
+                        <li>${topic.name} 
+                            <form action="/unsubscribe/${topic.name}" method="post">
+                                <input type="submit" value="Unsubscribe">
+                            </form>
+                        </li>`).join('')}
+                </ul>
+                <h3>All Topics:</h3>
+                <ul>
+                    ${topics.map(topic => `
+                        <li>${topic.name} 
+                            <form action="/subscribe/${topic.name}" method="post">
+                                <input type="submit" value="Subscribe">
+                            </form>
+                        </li>`).join('')}
+                </ul>
+                <h3>Recent Messages:</h3>
+                <ul>
+                    ${Object.keys(recentMessages).map(topicName => `
+                        <li>${topicName}:
+                            <ul>
+                                ${recentMessages[topicName].map(message => `<li>${message.sender}: ${message.content}</li>`).join('')}
+                            </ul>
+                        </li>`).join('')}
+                </ul>
+            `);
+        } else {
+            res.send('Invalid UserName or Password. <a href="/">Go back</a>');
+        }
     } else {
         // Authentication cookie does not exist
         res.send(`
@@ -210,10 +269,19 @@ app.post('/register', async (req, res) => {
     await userController.register(req, res);
 });
 
-// Subscribe endpoint
-app.get('/subscribe/:topicName', (req, res) => {
+// Handle post message POST request
+app.post('/post-message/:topicName', async (req, res) => {
+    const user = await getUserFromDatabase(req); // get the user from the database
     const { topicName } = req.params;
-    const user = getUserFromDatabase(req); // get the user from the database
+    const { messageContent } = req.body;
+    messageController.postMessage(user, topicName, messageContent);
+    res.redirect('/');
+});
+
+// Subscribe endpoint
+app.post('/subscribe/:topicName', async (req, res) => {
+    const user = await getUserFromDatabase(req); // get the user from the database
+    const { topicName } = req.params;
     const topic = topicController.getAllTopics().find(topic => topic.name === topicName);
     if (topic) {
         user.subscribeToTopic(topic);
@@ -224,9 +292,9 @@ app.get('/subscribe/:topicName', (req, res) => {
 });
 
 // Unsubscribe endpoint
-app.get('/unsubscribe/:topicName', (req, res) => {
+app.post('/unsubscribe/:topicName', async (req, res) => {
+    const user = await getUserFromDatabase(req); // get the user from the database
     const { topicName } = req.params;
-    const user = getUserFromDatabase(req); // get the user from the database
     const topic = user.subscriptions.find(topic => topic.name === topicName);
     if (topic) {
         user.unsubscribeFromTopic(topic);
