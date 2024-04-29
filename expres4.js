@@ -138,7 +138,7 @@ class UserController {
 
         if (user) {
             // Generate authentication cookie
-            res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
+            res.cookie('auth', user.UserName, { maxAge: 60000 }); // Expiring in 1 minute
             console.log("Login successful:", { UserName, Password }); // Log successful login
             res.redirect('/');
         } else {
@@ -175,7 +175,7 @@ app.get('/', async (req, res) => {
                 ${topics.map(topic => `<li>${topic.name} <a href="/subscribe/${topic.name}">(Subscribe)</a></li>`).join('')}
             </ul>
         `);
-    }else {
+    } else {
         // Authentication cookie does not exist
         res.send(`
             <h2>Login or Register</h2>
@@ -196,7 +196,18 @@ app.get('/', async (req, res) => {
             </form>
         `);
     }
-    
+});
+
+// Handle login POST request
+app.post('/login', async (req, res) => {
+    const userController = new UserController();
+    await userController.login(req, res);
+});
+
+// Handle registration POST request
+app.post('/register', async (req, res) => {
+    const userController = new UserController();
+    await userController.register(req, res);
 });
 
 // Subscribe endpoint
