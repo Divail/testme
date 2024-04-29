@@ -120,18 +120,8 @@ app.post('/add-topic', async (req, res) => {
     const topicsCollection = client.db('ckmdb').collection('Topics');
     await topicsCollection.insertOne({ name: topicName }); // Insert the new topic into the database
 
-    // Retrieve the updated list of topics from the database
-    const topics = await topicsCollection.find({}).toArray();
-
-    // Render the topics page with the updated list of topics
-    let topicsList = '<h2>Message Threads</h2><ul>';
-    topics.forEach(topic => {
-        topicsList += `<li><a href="/topic/${topic._id}">${topic.topicName}</a></li>`;
-    });
-    topicsList += '</ul>';
-    topicsList += '<button onclick="location.href=\'/add-topic\'">Add New Topic</button>'; // Button to add a new topic
-    topicsList += '<br><a href="/">Logout</a>';
-    res.send(topicsList);
+    // Redirect to the topics page after adding a new topic
+    res.redirect('/topics');
 });
 
 // Route to display topics/message threads
@@ -143,7 +133,7 @@ app.get('/topics', async (req, res) => {
     // Render the topics page with the retrieved topics
     let topicsList = '<h2>Message Threads</h2><ul>';
     topics.forEach(topic => {
-        topicsList += `<li><a href="/topic/${topic._id}">${topic.topicName}</a></li>`;
+        topicsList += `<li><a href="/topic/${topic._id}">${topic.name}</a></li>`;
     });
     topicsList += '</ul>';
     topicsList += '<button onclick="location.href=\'/add-topic\'">Add New Topic</button>'; // Button to add a new topic
@@ -163,14 +153,6 @@ app.get('/add-topic', (req, res) => {
         </form>
         <br><a href="/topics">Back to Topics</a>
     `);
-});
-
-// Route to handle adding a new topic
-app.post('/add-topic', (req, res) => {
-    const { topicName } = req.body;
-    // Logic to add the new topic to the database (you need to implement this)
-    // After adding the topic, you can redirect the user back to the topics page
-    res.redirect('/topics');
 });
 
 // Start server
