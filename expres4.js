@@ -155,11 +155,60 @@ app.get('/add-topic', (req, res) => {
     `);
 });
 
-// Route to display a specific topic/message thread
-app.get('/topic/:id', (req, res) => {
-    const { id } = req.params;
-    const topicName = `Topic ${id}`;
-    res.send(`<h2>${topicName}</h2>`);
+// Route to display a specific topic with its comments
+app.get('/topic/:topicId', async (req, res) => {
+    const { topicId } = req.params;
+
+    try {
+        // Query the database for the topic details
+        const topic = await Topic.findById(topicId);
+        if (!topic) {
+            return res.status(404).send('Topic not found');
+        }
+
+        // Query the database for comments associated with the topic
+        const comments = await Comment.find({ topicId }).populate('userId');
+
+        // Render the topic page with its details and comments
+        res.render('topic', { topic, comments });
+    } catch (error) {
+        console.error('Error fetching topic and comments:', error);
+        res.status(500).send('An error occurred while fetching topic and comments.');
+    }
+});
+
+// Define a schema for comments
+const messageSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    topicId: { type: mongoose.Schema.Types.ObjectId, ref: 'Topic', required: true },
+    message: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+
+// Create a model for comments
+const Message = mongoose.model('Message', messageSchema, 'Messages');
+
+// Route to handle adding a new message to a specific topic
+app.post('/topic/:topicId/add-message', async (req, res) => {
+    const { userId, message } = req.body;
+    const { topicId } = req.params;
+
+    try {
+        // Create a new message document
+        const message = new Message({
+            userId,
+            topicId,
+            message
+        });
+
+        // Save the message to the database
+        await message.save();
+
+        res.send('Message added successfully!');
+    } catch (error) {
+        console.error('Error adding message:', error);
+        res.status(500).send('An error occurred while adding the message.');
+    }
 });
 
 // Start server
