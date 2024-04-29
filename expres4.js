@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const { MongoClient } = require("mongodb");
+const mongoose = require('mongoose');
 const app = express();
 const port = 3000;
 
