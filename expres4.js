@@ -75,38 +75,37 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// Login endpoint
-app.post('/login', async (req, res) => {
-    const { UserName, Password } = req.body;
-    console.log("Received login request:", { UserName, Password }); // Log the received data
-    const usersCollection = client.db('ckmdb').collection('User');
-
-    // Check if the user exists in the database
-    const user = await usersCollection.findOne({ UserName, Password });
-
-    if (user) {
-        // Generate authentication cookie
-        res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
-        console.log("Login successful:", { UserName, Password }); // Log successful login
-        res.redirect('/topics'); // Redirect to the topics page upon successful login
-    } else {
-        console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
-        res.send('Invalid UserName or Password. <a href="/">Go back</a>');
-    }
-});
-
 // Route to display topics/message threads
-app.get('/topics', (req, res) => {
-    const topics = [
-        { id: 1, name: 'Topic 1' },
-        { id: 2, name: 'Topic 2' },
-        { id: 3, name: 'Topic 3' }
-    ];
+app.get('/topics', async (req, res) => {
+    // Retrieve all topics from the database
+    const topicsCollection = client.db('ckmdb').collection('Topics');
+    const topics = await topicsCollection.find({}).toArray();
 
-    // Render the topics page with dynamic links to each topic's page and a button to add a new topic
+    // Render the topics page with the retrieved topics
     let topicsList = '<h2>Message Threads</h2><ul>';
     topics.forEach(topic => {
-        topicsList += `<li><a href="/topic/${topic.id}">${topic.name}</a></li>`;
+        topicsList += `<li><a href="/topic/${topic._id}">${topic.name}</a></li>`;
+    });
+    topicsList += '</ul>';
+    topicsList += '<button onclick="location.href=\'/add-topic\'">Add New Topic</button>'; // Button to add a new topic
+    topicsList += '<br><a href="/">Logout</a>';
+    res.send(topicsList);
+});
+
+// Route to handle adding a new topic
+app.post('/add-topic', async (req, res) => {
+    const { topicName } = req.body;
+    // Logic to add the new topic to the database
+    const topicsCollection = client.db('ckmdb').collection('Topics');
+    await topicsCollection.insertOne({ name: topicName }); // Insert the new topic into the database
+
+    // Retrieve the updated list of topics from the database
+    const topics = await topicsCollection.find({}).toArray();
+
+    // Render the topics page with the updated list of topics
+    let topicsList = '<h2>Message Threads</h2><ul>';
+    topics.forEach(topic => {
+        topicsList += `<li><a href="/topic/${topic._id}">${topic.name}</a></li>`;
     });
     topicsList += '</ul>';
     topicsList += '<button onclick="location.href=\'/add-topic\'">Add New Topic</button>'; // Button to add a new topic
