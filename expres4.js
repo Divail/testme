@@ -35,6 +35,7 @@ class Topic {
     constructor(name) {
         this.name = name;
         this.subscribers = [];
+        this.messages = [];
     }
 
     subscribe(user) {
@@ -45,10 +46,19 @@ class Topic {
         this.subscribers = this.subscribers.filter(subscriber => subscriber !== user);
     }
 
+    postMessage(message) {
+        this.messages.push(message);
+        this.notify(message);
+    }
+
     notify(message) {
         this.subscribers.forEach(subscriber => {
             subscriber.notify(message);
         });
+    }
+
+    getRecentMessages(count = 2) {
+        return this.messages.slice(-count);
     }
 }
 
@@ -76,7 +86,28 @@ class User {
     }
 }
 
-// Controller
+// Controller - TopicController
+class TopicController {
+    constructor() {
+        this.topics = [];
+    }
+
+    createTopic(topicName) {
+        const newTopic = new Topic(topicName);
+        this.topics.push(newTopic);
+        return newTopic;
+    }
+
+    getAllTopics() {
+        return this.topics;
+    }
+
+    getSubscribedTopics(user) {
+        return user.subscriptions;
+    }
+}
+
+// Controller - UserController
 class UserController {
     async register(req, res) {
         const { UserName, Password } = req.body;
@@ -109,13 +140,15 @@ class UserController {
             // Generate authentication cookie
             res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
             console.log("Login successful:", { UserName, Password }); // Log successful login
-            res.send('Login successful!<br><a href="/cookies">View active cookies</a>');
+            res.redirect('/');
         } else {
             console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
             res.send('Invalid UserName or Password. <a href="/">Go back</a>');
         }
     }
 }
+
+const topicController = new TopicController();
 
 // Use body-parser middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -124,42 +157,63 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Default endpoint
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     // Check for authentication cookie
     if (req.cookies.auth) {
         // Authentication cookie exists
-        res.send(`Authentication cookie exists. Value: ${req.cookies.auth}<br><a href="/cookies">View active cookies</a>`);
+        const topics = topicController.getAllTopics();
+        const user = await getUserFromDatabase(req); // get the user from the database
+        const subscribedTopics = topicController.getSubscribedTopics(user);
+        res.send(`
+            <h2>Welcome ${user.UserName}!</h2>
+            <h3>Subscribed Topics:</h3>
+            <ul>
+                ${subscribedTopics.map(topic => `<li>${topic.name} <a href="/unsubscribe/${topic.name}">(Unsubscribe)</a></li>`).join('')}
+            </ul>
+            <h3>All Topics:</h3>
+            <ul>
+                ${topics.map(topic => `<li>${topic.name} <a href="/subscribe/${topic.name}">(Subscribe)</a></li>`).join('')}
+            </ul>
+        `);
     } else {
         // Authentication cookie does not exist
         res.send(`
             <h2>Login or Register</h2>
             <form action="/login" method="post">
-                <label for="UserName">User Name:</label><br>
-                <input type="text" id="UserName" name="UserName" required><br>
-                <label for="Password">Password:</label><br>
-                <input type="password" id="Password" name="Password" required><br><br>
-                <input type="submit" value="Login">
+                <!-- Login form -->
             </form>
             <br>
             <form action="/register" method="post">
-                <label for="UserName">Desired User Name:</label><br>
-                <input type="text" id="UserName" name="UserName" required><br>
-                <label for="Password">Desired Password:</label><br>
-                <input type="password" id="Password" name="Password" required><br><br>
-                <input type="submit" value="Register">
+                <!-- Registration form -->
             </form>
         `);
     }
 });
 
-// Register endpoint
-app.post('/register', async (req, res) => {
-    await new UserController().register(req, res);
+// Subscribe endpoint
+app.get('/subscribe/:topicName', (req, res) => {
+    const { topicName } = req.params;
+    const user = getUserFromDatabase(req); // get the user from the database
+    const topic = topicController.getAllTopics().find(topic => topic.name === topicName);
+    if (topic) {
+        user.subscribeToTopic(topic);
+        res.redirect('/');
+    } else {
+        res.status(404).send('Topic not found.');
+    }
 });
 
-// Login endpoint
-app.post('/login', async (req, res) => {
-    await new UserController().login(req, res);
+// Unsubscribe endpoint
+app.get('/unsubscribe/:topicName', (req, res) => {
+    const { topicName } = req.params;
+    const user = getUserFromDatabase(req); // get the user from the database
+    const topic = user.subscriptions.find(topic => topic.name === topicName);
+    if (topic) {
+        user.unsubscribeFromTopic(topic);
+        res.redirect('/');
+    } else {
+        res.status(404).send('Topic not found in subscriptions.');
+    }
 });
 
 // Start server
@@ -167,3 +221,16 @@ app.listen(port, async () => {
     await db.connect();
     console.log(`Server started at http://localhost:${port}`);
 });
+
+async function getUserFromDatabase(req) {
+    const usersCollection = db.getClient().db('ckmdb').collection('User');
+    
+    try {
+        // Retrieve user based on authentication cookie
+        const user = await usersCollection.findOne({ UserName: req.cookies.auth });
+        return user;
+    } catch (error) {
+        console.error('Error retrieving user from database:', error);
+        return null; // Return null or handle the error as appropriate in your application
+    }
+}
