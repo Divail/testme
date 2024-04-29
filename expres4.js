@@ -77,42 +77,39 @@ app.post('/register', async (req, res) => {
 
 // Login endpoint
 app.post('/login', async (req, res) => {
-  const { UserName, Password } = req.body;
-  console.log("Received login request:", { UserName, Password }); // Log the received data
-  const usersCollection = client.db('ckmdb').collection('User');
+    const { UserName, Password } = req.body;
+    console.log("Received login request:", { UserName, Password }); // Log the received data
+    const usersCollection = client.db('ckmdb').collection('User');
 
-  // Check if the user exists in the database
-  const user = await usersCollection.findOne({ UserName, Password });
+    // Check if the user exists in the database
+    const user = await usersCollection.findOne({ UserName, Password });
 
-  if (user) {
-      // Generate authentication cookie
-      res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
-      console.log("Login successful:", { UserName, Password }); // Log successful login
-      res.send('Login successful!<br><a href="/cookies">View active cookies</a>');
-  } else {
-      console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
-      res.send('Invalid UserName or Password. <a href="/">Go back</a>');
-  }
+    if (user) {
+        // Generate authentication cookie
+        res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
+        console.log("Login successful:", { UserName, Password }); // Log successful login
+        res.redirect('/topics'); // Redirect to the topics page upon successful login
+    } else {
+        console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
+        res.send('Invalid UserName or Password. <a href="/">Go back</a>');
+    }
 });
 
-// Route to display active cookies
-app.get('/cookies', (req, res) => {
+// Route to display topics/message threads
+app.get('/topics', (req, res) => {
+    // Render the topics page with appropriate content
     res.send(`
-        <h2>Active Cookies</h2>
-        <pre>${JSON.stringify(req.cookies, null, 2)}</pre>
-        <br>
-        <a href="/clearcookie/auth">Clear Authentication Cookie</a>
-        <br>
-        <a href="/">Go back</a>
+        <h2>Message Threads</h2>
+        <ul>
+            <li><a href="/topic/1">Topic 1</a></li>
+            <li><a href="/topic/2">Topic 2</a></li>
+            <li><a href="/topic/3">Topic 3</a></li>
+            <!-- Add more topics as needed -->
+        </ul>
+        <a href="/">Logout</a>
     `);
 });
 
-// Route to clear a specific cookie
-app.get('/clearcookie/:cookiename', (req, res) => {
-    const { cookiename } = req.params;
-    res.clearCookie(cookiename);
-    res.send(`Cookie '${cookiename}' cleared successfully.<br><a href="/">Go back</a>`);
-});
 
 // Start server
 app.listen(port, () => {
