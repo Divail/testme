@@ -8,17 +8,114 @@ const port = 3000;
 // MongoDB Connection URI
 const uri = "mongodb+srv://UserNew:NewUser228@divail.myqfgb2.mongodb.net/?retryWrites=true&w=majority&appName=Divail";
 
-// Initialize MongoClient
-const client = new MongoClient(uri);
+// Singleton Database Connection
+class Database {
+    constructor() {
+        this.client = new MongoClient(uri);
+    }
 
-// Connect to MongoDB
-client.connect(err => {
-  if (err) {
-      console.error('Error connecting to MongoDB:', err);
-      return;
-  }
-  console.log('Connected to MongoDB');
-});
+    async connect() {
+        try {
+            await this.client.connect();
+            console.log('Connected to MongoDB');
+        } catch (err) {
+            console.error('Error connecting to MongoDB:', err);
+        }
+    }
+
+    getClient() {
+        return this.client;
+    }
+}
+
+const db = new Database();
+
+// Observer pattern for topic subscriptions
+class Topic {
+    constructor(name) {
+        this.name = name;
+        this.subscribers = [];
+    }
+
+    subscribe(user) {
+        this.subscribers.push(user);
+    }
+
+    unsubscribe(user) {
+        this.subscribers = this.subscribers.filter(subscriber => subscriber !== user);
+    }
+
+    notify(message) {
+        this.subscribers.forEach(subscriber => {
+            subscriber.notify(message);
+        });
+    }
+}
+
+// Model - User
+class User {
+    constructor(UserName, Password) {
+        this.UserName = UserName;
+        this.Password = Password;
+        this.subscriptions = [];
+    }
+
+    subscribeToTopic(topic) {
+        this.subscriptions.push(topic);
+        topic.subscribe(this);
+    }
+
+    unsubscribeFromTopic(topic) {
+        this.subscriptions = this.subscriptions.filter(subscription => subscription !== topic);
+        topic.unsubscribe(this);
+    }
+
+    notify(message) {
+        console.log(`Received message: ${message} as ${this.UserName}`);
+        // Implement what should happen when a user receives a message
+    }
+}
+
+// Controller
+class UserController {
+    async register(req, res) {
+        const { UserName, Password } = req.body;
+        console.log("Received registration request:", { UserName, Password }); // Log the received data
+        const usersCollection = db.getClient().db('ckmdb').collection('User');
+
+        // Check if the user already exists in the database
+        const existingUser = await usersCollection.findOne({ UserName });
+
+        if (existingUser) {
+            // If the user already exists, send a message indicating registration is not possible
+            res.send('Registration failed. User already exists. <a href="/">Go back</a>');
+        } else {
+            // If the user does not exist, insert the new user into the database
+            await usersCollection.insertOne({ UserName, Password });
+            console.log("User registered successfully:", { UserName, Password }); // Log successful registration
+            res.send('Registration successful!<br><a href="/">Go back to login</a>');
+        }
+    }
+
+    async login(req, res) {
+        const { UserName, Password } = req.body;
+        console.log("Received login request:", { UserName, Password }); // Log the received data
+        const usersCollection = db.getClient().db('ckmdb').collection('User');
+
+        // Check if the user exists in the database
+        const user = await usersCollection.findOne({ UserName, Password });
+
+        if (user) {
+            // Generate authentication cookie
+            res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
+            console.log("Login successful:", { UserName, Password }); // Log successful login
+            res.send('Login successful!<br><a href="/cookies">View active cookies</a>');
+        } else {
+            console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
+            res.send('Invalid UserName or Password. <a href="/">Go back</a>');
+        }
+    }
+}
 
 // Use body-parser middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -57,64 +154,16 @@ app.get('/', (req, res) => {
 
 // Register endpoint
 app.post('/register', async (req, res) => {
-    const { UserName, Password } = req.body;
-    console.log("Received registration request:", { UserName, Password }); // Log the received data
-    const usersCollection = client.db('ckmdb').collection('User');
-
-    // Check if the user already exists in the database
-    const existingUser = await usersCollection.findOne({ UserName });
-
-    if (existingUser) {
-        // If the user already exists, send a message indicating registration is not possible
-        res.send('Registration failed. User already exists. <a href="/">Go back</a>');
-    } else {
-        // If the user does not exist, insert the new user into the database
-        await usersCollection.insertOne({ UserName, Password });
-        console.log("User registered successfully:", { UserName, Password }); // Log successful registration
-        res.send('Registration successful!<br><a href="/">Go back to login</a>');
-    }
+    await new UserController().register(req, res);
 });
 
 // Login endpoint
 app.post('/login', async (req, res) => {
-  const { UserName, Password } = req.body;
-  console.log("Received login request:", { UserName, Password }); // Log the received data
-  const usersCollection = client.db('ckmdb').collection('User');
-
-  // Check if the user exists in the database
-  const user = await usersCollection.findOne({ UserName, Password });
-
-  if (user) {
-      // Generate authentication cookie
-      res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
-      console.log("Login successful:", { UserName, Password }); // Log successful login
-      res.send('Login successful!<br><a href="/cookies">View active cookies</a>');
-  } else {
-      console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
-      res.send('Invalid UserName or Password. <a href="/">Go back</a>');
-  }
-});
-
-// Route to display active cookies
-app.get('/cookies', (req, res) => {
-    res.send(`
-        <h2>Active Cookies</h2>
-        <pre>${JSON.stringify(req.cookies, null, 2)}</pre>
-        <br>
-        <a href="/clearcookie/auth">Clear Authentication Cookie</a>
-        <br>
-        <a href="/">Go back</a>
-    `);
-});
-
-// Route to clear a specific cookie
-app.get('/clearcookie/:cookiename', (req, res) => {
-    const { cookiename } = req.params;
-    res.clearCookie(cookiename);
-    res.send(`Cookie '${cookiename}' cleared successfully.<br><a href="/">Go back</a>`);
+    await new UserController().login(req, res);
 });
 
 // Start server
-app.listen(port, () => {
+app.listen(port, async () => {
+    await db.connect();
     console.log(`Server started at http://localhost:${port}`);
 });
