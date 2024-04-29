@@ -126,7 +126,7 @@ app.post('/add-topic', async (req, res) => {
     // Render the topics page with the updated list of topics
     let topicsList = '<h2>Message Threads</h2><ul>';
     topics.forEach(topic => {
-        topicsList += `<li><a href="/topic/${topic._id}">${topic.name}</a></li>`;
+        topicsList += `<li><a href="/topic/${topic._id}">${topic.topicName}</a></li>`;
     });
     topicsList += '</ul>';
     topicsList += '<button onclick="location.href=\'/add-topic\'">Add New Topic</button>'; // Button to add a new topic
@@ -143,7 +143,7 @@ app.get('/topics', async (req, res) => {
     // Render the topics page with the retrieved topics
     let topicsList = '<h2>Message Threads</h2><ul>';
     topics.forEach(topic => {
-        topicsList += `<li><a href="/topic/${topic._id}">${topic.name}</a></li>`;
+        topicsList += `<li><a href="/topic/${topic._id}">${topic.topicName}</a></li>`;
     });
     topicsList += '</ul>';
     topicsList += '<button onclick="location.href=\'/add-topic\'">Add New Topic</button>'; // Button to add a new topic
