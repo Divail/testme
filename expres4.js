@@ -158,10 +158,11 @@ app.get('/add-topic', (req, res) => {
 
 // Route to display a specific topic with its comments
 app.get('/topic/:topicId', async (req, res) => {
-    const { topic } = req; 
-    const topicName = topic.name;
+    const { id } = req.params;
+    const topicName = `Topic ${id}`;
     res.send(`<h2>${topicName}</h2>`);
 });
+
 
 // Define a schema for comments
 const messageSchema = new mongoose.Schema({
