@@ -131,7 +131,7 @@ app.get('/topics', async (req, res) => {
     const topics = await topicsCollection.find({}).toArray();
 
     // Render the topics page with the retrieved topics
-    let topicsList = '<h2>Message Threads</h2><ul>';
+    let topicsList = '<h2>Available Topcis</h2><ul>';
     topics.forEach(topic => {
         topicsList += `<li><a href="/topic/${topic._id}">${topic.name}</a></li>`;
     });
@@ -153,6 +153,13 @@ app.get('/add-topic', (req, res) => {
         </form>
         <br><a href="/topics">Back to Topics</a>
     `);
+});
+
+// Route to display a specific topic/message thread
+app.get('/topic/:id', (req, res) => {
+    const { id } = req.params;
+    const topicName = `Topic ${id}`;
+    res.send(`<h2>${topicName}</h2>`);
 });
 
 // Start server
