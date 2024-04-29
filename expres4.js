@@ -175,19 +175,28 @@ app.get('/', async (req, res) => {
                 ${topics.map(topic => `<li>${topic.name} <a href="/subscribe/${topic.name}">(Subscribe)</a></li>`).join('')}
             </ul>
         `);
-    } else {
+    }else {
         // Authentication cookie does not exist
         res.send(`
             <h2>Login or Register</h2>
             <form action="/login" method="post">
-                <!-- Login form -->
+                <label for="loginUserName">Username:</label><br>
+                <input type="text" id="loginUserName" name="UserName" required><br>
+                <label for="loginPassword">Password:</label><br>
+                <input type="password" id="loginPassword" name="Password" required><br><br>
+                <input type="submit" value="Login">
             </form>
             <br>
             <form action="/register" method="post">
-                <!-- Registration form -->
+                <label for="registerUserName">Desired Username:</label><br>
+                <input type="text" id="registerUserName" name="UserName" required><br>
+                <label for="registerPassword">Desired Password:</label><br>
+                <input type="password" id="registerPassword" name="Password" required><br><br>
+                <input type="submit" value="Register">
             </form>
         `);
     }
+    
 });
 
 // Subscribe endpoint
