@@ -138,31 +138,42 @@ app.get('/add-topic', (req, res) => {
 });
 
 // Route to display a specific topic/message thread
-app.get('/topic/:id', async (req, res) => {
-    const { id } = req.params;
-    const topicName = `Topic ${id}`;
-    
-    // Fetch messages for the specified topic ID from the database
-    const messagesCollection = client.db('ckmdb').collection('Messages');
-    const messages = await messagesCollection.find({ topicId: id }).toArray();
+app.get('/topic/:topicId', async (req, res) => {
+    const { topicId } = req.params;
 
-    let messagesList = `<h2>${topicName}</h2>`;
-    
-    // Iterate over each message
-    for (const message of messages) {
-        // Display the message content
-        messagesList += `<p>Message: ${message.message}</p>`;
+    try {
+        // Fetch messages for the specified topicId
+        const messagesCollection = client.db('ckmdb').collection('Messages');
+        const messages = await messagesCollection.find({ topicId }).toArray();
+
+        // Render the topic page with messages
+        let topicPage = `<h2>Topic Details</h2>`;
+        topicPage += `<p>Topic ID: ${topicId}</p>`;
+        topicPage += `<h3>Messages:</h3>`;
+        if (messages.length > 0) {
+            for (const message of messages) {
+                topicPage += `<p>${message.message}</p>`;
+            }
+        } else {
+            topicPage += `<p>No messages for this topic.</p>`;
+        }
+
+        // Add a form to post new messages
+        topicPage += `
+            <form action="/post-message" method="post">
+                <input type="hidden" name="topicId" value="${topicId}">
+                <input type="text" name="message" placeholder="Enter your message">
+                <button type="submit">Post Message</button>
+            </form>
+        `;
+
+        res.send(topicPage);
+    } catch (error) {
+        console.error('Error fetching messages:', error);
+        res.status(500).send('Internal Server Error');
     }
-    messagesList += `
-        <form action="/topic/${id}" method="post">
-            <label for="message">Enter your message:</label><br>
-            <input type="text" id="message" name="message" required><br><br>
-            <input type="submit" value="Send Message">
-        </form>
-        <p>Logged in as: ${UserName}</p>
-    `;
-    res.send(messagesList);
 });
+
 
 // Route to handle sending a message to a specific topic
 app.post('/topic/:id', async (req, res) => {
