@@ -139,26 +139,20 @@ app.get('/add-topic', (req, res) => {
 
 // Route to display a specific topic/message thread
 app.get('/topic/:topicId', async (req, res) => {
-    const { topicId, UserName } = req.params;
-
-    const topicsCollection = client.db('ckmdb').collection('Topics');
-    let topicName;
-
-    // Find the topic with the specified topicId
-    topics.forEach(topic => {
-        if (topic.id === topicId) {
-            topicName = topic.name;
-        }
-    });
+    const { topicId } = req.params;
 
     try {
         // Fetch messages for the specified topicId
         const messagesCollection = client.db('ckmdb').collection('Messages');
         const messages = await messagesCollection.find({ topicId }).toArray();
 
+        // Find the topic name from the database
+        const topicsCollection = client.db('ckmdb').collection('Topics');
+        const topic = await topicsCollection.findOne({ id: topicId });
+        const topicName = topic ? topic.name : 'Unknown Topic';
+
         // Render the topic page with messages
-        let topicPage = `<h2>Topic Details</h2>`;
-        topicPage += `<p>Topic name: ${topicName}</p>`;
+        let topicPage = `<h2>Topic: ${topicName}</h2>`;
         topicPage += `<h3>Messages:</h3>`;
         if (messages.length > 0) {
             for (const message of messages) {
@@ -171,7 +165,7 @@ app.get('/topic/:topicId', async (req, res) => {
         // Add a form to post new messages
         topicPage += `
             <form action="/post-message" method="post">
-                <input type="hidden" name="User:" value="${UserName}">
+                <input type="hidden" name="topicId" value="${topicId}">
                 <input type="text" name="message" placeholder="Enter your message">
                 <button type="submit">Post Message</button>
             </form>
