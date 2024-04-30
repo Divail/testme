@@ -55,6 +55,27 @@ app.get('/', (req, res) => {
     }
 });
 
+// Login endpoint
+app.post('/login', async (req, res) => {
+    const { UserName, Password } = req.body;
+    console.log("Received login request:", { UserName, Password }); // Log the received data
+    const usersCollection = client.db('ckmdb').collection('User');
+
+    // Check if the user exists in the database
+    const user = await usersCollection.findOne({ UserName, Password });
+
+    if (user) {
+        // Generate authentication cookie and set userId cookie
+        res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
+        res.cookie('userId', user.userId, { maxAge: 60000 }); // Assuming user has a field userId
+        console.log("Login successful:", { UserName, Password }); // Log successful login
+        res.redirect('/topics'); // Redirect to the topics page upon successful login
+    } else {
+        console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
+        res.send('Invalid UserName or Password. <a href="/">Go back</a>');
+    }
+});
+
 // Register endpoint
 app.post('/register', async (req, res) => {
     const { UserName, Password } = req.body;
@@ -74,29 +95,6 @@ app.post('/register', async (req, res) => {
         res.send('Registration successful!<br><a href="/">Go back to login</a>');
     }
 });
-
-// Login endpoint
-app.post('/login', async (req, res) => {
-    const { UserName, Password } = req.body;
-    console.log("Received login request:", { UserName, Password }); // Log the received data
-    const usersCollection = client.db('ckmdb').collection('User');
-
-    // Check if the user exists in the database
-    const user = await usersCollection.findOne({ UserName, Password });
-
-    if (user) {
-        // Generate authentication cookie and set userId and username cookies
-        res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
-        res.cookie('userId', user.userId, { maxAge: 60000 }); // Assuming user has a field userId
-        res.cookie('username', user.UserName, { maxAge: 60000 }); // Assuming user has a field UserName
-        console.log("Login successful:", { UserName, Password }); // Log successful login
-        res.redirect('/topics'); // Redirect to the topics page upon successful login
-    } else {
-        console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
-        res.send('Invalid UserName or Password. <a href="/">Go back</a>');
-    }
-});
-
 
 // Route to display topics/message threads
 app.get('/topics', async (req, res) => {
@@ -149,12 +147,17 @@ app.get('/topic/:topicId', async (req, res) => {
         const messagesCollection = client.db('ckmdb').collection('Messages');
         const messages = await messagesCollection.find({ topicId }).toArray();
 
+        // Find the topic name from the database
+        const topicsCollection = client.db('ckmdb').collection('Topics');
+        const topic = await topicsCollection.findOne({ id: topicId });
+        const topicName = topic ? topic.name : 'Unknown Topic';
+
         // Render the topic page with messages
         let topicPage = `<h2>Topic: ${topicName}</h2>`;
         topicPage += `<h3>Messages:</h3>`;
         if (messages.length > 0) {
             for (const message of messages) {
-                topicPage += `<p>User: ${message.username}, Message: ${message.message}</p>`;
+                topicPage += `<p>${message.message}</p>`;
             }
         } else {
             topicPage += `<p>No messages for this topic.</p>`;
@@ -179,13 +182,13 @@ app.get('/topic/:topicId', async (req, res) => {
 
 // Route to handle sending a message to a specific topic
 app.post('/post-message', async (req, res) => {
-    const { topicId, message } = req.body;
+    const { topicId } = req.body; 
+    const { message } = req.body;
     const userId = req.cookies.userId;
-    const username = req.cookies.username;
 
     // Logic to save the message to the database
     const messagesCollection = client.db('ckmdb').collection('Messages');
-    await messagesCollection.insertOne({ topicId, userId, username, message });
+    await messagesCollection.insertOne({ topicId, userId, message });
 
     res.redirect(`/topic/${topicId}`);
 });
