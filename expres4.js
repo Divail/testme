@@ -138,6 +138,7 @@ app.get('/add-topic', (req, res) => {
 });
 
 // Route to display a specific topic/message thread
+// Route to display a specific topic/message thread
 app.get('/topic/:id', async (req, res) => {
     const { id } = req.params;
     const topicName = `Topic ${id}`;
@@ -147,10 +148,19 @@ app.get('/topic/:id', async (req, res) => {
     const messages = await messagesCollection.find({ topicId: id }).toArray();
 
     let messagesList = `<h2>${topicName}</h2>`;
-    // Iterate over each message and display user and message content
-    messages.forEach(message => {
-        messagesList += `<p>User: ${message.userId}, Message: ${message.message}</p>`;
-    });
+    
+    // Iterate over each message
+    for (const message of messages) {
+        // Fetch the user details for the current message's userId
+        const usersCollection = client.db('ckmdb').collection('User');
+        const user = await usersCollection.findOne({ _id: message.userId });
+
+        // Display the username and message content
+        messagesList += `<p>User: ${user.UserName}, Message: ${message.message}</p>`;
+    }
+
+    // Fetch the UserName cookie to display alongside the messages
+    const userNameCookie = req.cookies.UserName;
 
     messagesList += `
         <form action="/topic/${id}" method="post">
