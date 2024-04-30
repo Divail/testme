@@ -138,29 +138,19 @@ app.get('/add-topic', (req, res) => {
 });
 
 // Route to display a specific topic/message thread
-// Route to display a specific topic/message thread
 app.get('/topic/:id', async (req, res) => {
     const { id } = req.params;
     const topicName = `Topic ${id}`;
     
     // Fetch messages for the specified topic ID from the database
-    const messagesCollection = client.db('ckmdb').collection('messages');
+    const messagesCollection = client.db('ckmdb').collection('Messages');
     const messages = await messagesCollection.find({ topicId: id }).toArray();
 
     let messagesList = `<h2>${topicName}</h2>`;
-    
-    // Iterate over each message
-    for (const message of messages) {
-        // Fetch the user details for the current message's userId
-        const usersCollection = client.db('ckmdb').collection('User');
-        const user = await usersCollection.findOne({ _id: message.userId });
-
-        // Display the username and message content
+    // Iterate over each message and display user and message content
+    messages.forEach(message => {
         messagesList += `<p>User: ${user.UserName}, Message: ${message.message}</p>`;
-    }
-
-    // Fetch the UserName cookie to display alongside the messages
-    const userNameCookie = req.cookies.UserName;
+    });
 
     messagesList += `
         <form action="/topic/${id}" method="post">
@@ -179,7 +169,7 @@ app.post('/topic/:id', async (req, res) => {
     const userId = req.cookies.userId; // Assuming you store user ID in a cookie
 
     // Logic to save the message to the database
-    const messagesCollection = client.db('ckmdb').collection('messages');
+    const messagesCollection = client.db('ckmdb').collection('Messages');
     await messagesCollection.insertOne({ topicId: id, userId: userId, message: message });
 
     res.redirect(`/topic/${id}`);
