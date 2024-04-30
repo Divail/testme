@@ -2,7 +2,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const { MongoClient } = require("mongodb");
-const Message = require('./models/Message');
 const app = express();
 const port = 3000;
 
@@ -113,7 +112,6 @@ app.get('/topics', async (req, res) => {
     res.send(topicsList);
 });
 
-
 // Route to handle adding a new topic
 app.post('/add-topic', async (req, res) => {
     const { topicName } = req.body;
@@ -125,34 +123,17 @@ app.post('/add-topic', async (req, res) => {
     res.redirect('/topics');
 });
 
-// Route to display topics/message threads
-app.get('/topics', async (req, res) => {
-    // Retrieve all topics from the database
-    const topicsCollection = client.db('ckmdb').collection('Topics');
-    const topics = await topicsCollection.find({}).toArray();
-
-    // Render the topics page with the retrieved topics
-    let topicsList = '<h2>Available Topcis</h2><ul>';
-    topics.forEach(topic => {
-        topicsList += `<li><a href="/topic/${topic._id}">${topic.name}</a></li>`;
-    });
-    topicsList += '</ul>';
-    topicsList += '<button onclick="location.href=\'/add-topic\'">Add New Topic</button>'; // Button to add a new topic
-    topicsList += '<br><a href="/">Logout</a>';
-    res.send(topicsList);
-});
-
-// Route to display a specific topic/message thread
-app.get('/topic/:id', (req, res) => {
-    const { id } = req.params;
-    const topicName = `Topic ${id}`;
+// Route to display a form for adding a new topic
+app.get('/add-topic', (req, res) => {
+    // Render a form for adding a new topic
     res.send(`
-        <h2>${topicName}</h2>
-        <form action="/topic/${id}" method="post">
-            <label for="message">Enter your message:</label><br>
-            <input type="text" id="message" name="message" required><br><br>
-            <input type="submit" value="Send Message">
+        <h2>Add New Topic</h2>
+        <form action="/add-topic" method="post">
+            <label for="topicName">Topic Name:</label><br>
+            <input type="text" id="topicName" name="topicName" required><br><br>
+            <input type="submit" value="Add Topic">
         </form>
+        <br><a href="/topics">Back to Topics</a>
     `);
 });
 
@@ -160,50 +141,38 @@ app.get('/topic/:id', (req, res) => {
 app.get('/topic/:id', async (req, res) => {
     const { id } = req.params;
     const topicName = `Topic ${id}`;
+    
+    // Fetch messages for the specified topic ID from the database
+    const messagesCollection = client.db('ckmdb').collection('messages');
+    const messages = await messagesCollection.find({ topicId: id }).toArray();
 
-    try {
-        // Query the database for messages related to the specific topic
-        const messages = await Message.find({ topicId: id }).populate('userId');
+    let messagesList = `<h2>${topicName}</h2>`;
+    // Iterate over each message and display user and message content
+    messages.forEach(message => {
+        messagesList += `<p>User: ${message.userId}, Message: ${message.message}</p>`;
+    });
 
-        // Render the topic page with the retrieved messages
-        let topicPage = `<h2>${topicName}</h2>`;
-        messages.forEach(message => {
-            const userName = message.userId.UserName;
-            const messageText = message.message;
-            topicPage += `<p>${userName}: ${messageText}</p>`;
-        });
-        topicPage += `
-            <form action="/topic/${id}" method="post">
-                <label for="message">Enter your message:</label><br>
-                <input type="text" id="message" name="message" required><br><br>
-                <input type="submit" value="Send Message">
-            </form>
-        `;
-        res.send(topicPage);
-    } catch (error) {
-        console.error('Error fetching messages:', error);
-        res.status(500).send('An error occurred while fetching messages.');
-    }
+    messagesList += `
+        <form action="/topic/${id}" method="post">
+            <label for="message">Enter your message:</label><br>
+            <input type="text" id="message" name="message" required><br><br>
+            <input type="submit" value="Send Message">
+        </form>
+    `;
+    res.send(messagesList);
 });
 
 // Route to handle sending a message to a specific topic
 app.post('/topic/:id', async (req, res) => {
     const { id } = req.params;
     const { message } = req.body;
+    const userId = req.cookies.userId; // Assuming you store user ID in a cookie
 
-    try {
-        // Logic to save the message in the database
-        const newMessage = new Message({
-            userId: req.user._id, // Assuming you have the authenticated user available in req.user
-            topicId: id,
-            message: message
-        });
-        await newMessage.save();
-        res.redirect(`/topic/${id}`); // Redirect back to the topic page after sending the message
-    } catch (error) {
-        console.error('Error saving message:', error);
-        res.status(500).send('An error occurred while saving the message.');
-    }
+    // Logic to save the message to the database
+    const messagesCollection = client.db('ckmdb').collection('messages');
+    await messagesCollection.insertOne({ topicId: id, userId: userId, message: message });
+
+    res.redirect(`/topic/${id}`);
 });
 
 // Start server
