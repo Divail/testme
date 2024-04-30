@@ -181,8 +181,8 @@ app.get('/topic/:topicId', async (req, res) => {
 
 
 // Route to handle sending a message to a specific topic
-app.post('/topic/:topicId', async (req, res) => {
-    const { topicId } = req.params;
+app.post('/post-message', async (req, res) => {
+    const { topicId } = req.body; 
     const { message } = req.body;
     const userId = req.cookies.userId;
 
