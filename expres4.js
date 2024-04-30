@@ -65,8 +65,9 @@ app.post('/login', async (req, res) => {
     const user = await usersCollection.findOne({ UserName, Password });
 
     if (user) {
-        // Generate authentication cookie
+        // Generate authentication cookie and set userId cookie
         res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
+        res.cookie('userId', user.userId, { maxAge: 60000 }); // Assuming user has a field userId
         console.log("Login successful:", { UserName, Password }); // Log successful login
         res.redirect('/topics'); // Redirect to the topics page upon successful login
     } else {
@@ -180,16 +181,16 @@ app.get('/topic/:topicId', async (req, res) => {
 
 
 // Route to handle sending a message to a specific topic
-app.post('/topic/:id', async (req, res) => {
-    const { id } = req.params;
+app.post('/topic/:topicId', async (req, res) => {
+    const { topicId } = req.params;
     const { message } = req.body;
     const userId = req.cookies.userId;
 
     // Logic to save the message to the database
     const messagesCollection = client.db('ckmdb').collection('Messages');
-    await messagesCollection.insertOne({ topicId: id, userId: userId, message: message });
+    await messagesCollection.insertOne({ topicId, userId, message });
 
-    res.redirect(`/topic/${id}`);
+    res.redirect(`/topic/${topicId}`);
 });
 
 // Start server
