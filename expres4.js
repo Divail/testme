@@ -1,33 +1,23 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
-const { MongoClient } = require("mongodb");
+const { Database, User, Topic, Message } = require('./model');
+
 const app = express();
 const port = 3000;
 
 // MongoDB Connection URI
 const uri = "mongodb+srv://UserNew:NewUser228@divail.myqfgb2.mongodb.net/?retryWrites=true&w=majority&appName=Divail";
 
-// Initialize MongoClient
-const client = new MongoClient(uri);
+// Initialize database
+const db = new Database(uri);
 
-// Connect to MongoDB
-client.connect(err => {
-  if (err) {
-      console.error('Error connecting to MongoDB:', err);
-      return;
-  }
-  console.log('Connected to MongoDB');
-});
-
-// Use body-parser middleware
+// Use middleware
 app.use(bodyParser.urlencoded({ extended: true }));
-
-// Use cookie-parser middleware
 app.use(cookieParser());
 
 // Default endpoint
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     // Check for authentication cookie
     if (req.cookies.auth) {
         // Authentication cookie exists
@@ -55,80 +45,88 @@ app.get('/', (req, res) => {
     }
 });
 
-// Register endpoint
-app.post('/register', async (req, res) => {
-    const { UserName, Password } = req.body;
-    console.log("Received registration request:", { UserName, Password }); // Log the received data
-    const usersCollection = client.db('ckmdb').collection('User');
-
-    // Check if the user already exists in the database
-    const existingUser = await usersCollection.findOne({ UserName });
-
-    if (existingUser) {
-        // If the user already exists, send a message indicating registration is not possible
-        res.send('Registration failed. User already exists. <a href="/">Go back</a>');
-    } else {
-        // If the user does not exist, insert the new user into the database
-        await usersCollection.insertOne({ UserName, Password });
-        console.log("User registered successfully:", { UserName, Password }); // Log successful registration
-        res.send('Registration successful!<br><a href="/">Go back to login</a>');
-    }
-});
-
 // Login endpoint
 app.post('/login', async (req, res) => {
     const { UserName, Password } = req.body;
-    console.log("Received login request:", { UserName, Password }); // Log the received data
-    const usersCollection = client.db('ckmdb').collection('User');
+    const user = new User(db.getClient());
 
-    // Check if the user exists in the database
-    const user = await usersCollection.findOne({ UserName, Password });
+    try {
+        // Check if the user exists in the database
+        const foundUser = await user.findOne({ UserName, Password });
 
-    if (user) {
-        // Generate authentication cookie and set userId and username cookies
-        res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
-        res.cookie('userId', user.userId, { maxAge: 60000 }); // Assuming user has a field userId
-        res.cookie('username', user.UserName, { maxAge: 60000 }); // Assuming user has a field UserName
-        console.log("Login successful:", { UserName, Password }); // Log successful login
-        res.redirect('/topics'); // Redirect to the topics page upon successful login
-    } else {
-        console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
-        res.send('Invalid UserName or Password. <a href="/">Go back</a>');
+        if (foundUser) {
+            // Generate authentication cookie and set userId cookie
+            res.cookie('auth', 'authenticated', { maxAge: 60000 }); // Expiring in 1 minute
+            res.cookie('userId', foundUser.userId, { maxAge: 60000 }); // Assuming user has a field userId
+            console.log("Login successful:", { UserName, Password }); // Log successful login
+            res.redirect('/topics'); // Redirect to the topics page upon successful login
+        } else {
+            console.log("Invalid login attempt:", { UserName, Password }); // Log invalid login attempt
+            res.send('Invalid UserName or Password. <a href="/">Go back</a>');
+        }
+    } catch (error) {
+        console.error('Error during login:', error);
+        res.status(500).send('Internal Server Error');
     }
 });
 
+// Register endpoint
+app.post('/register', async (req, res) => {
+    const { UserName, Password } = req.body;
+    const user = new User(db.getClient());
+
+    try {
+        // Check if the user already exists in the database
+        const existingUser = await user.findOne({ UserName });
+
+        if (existingUser) {
+            res.send('Registration failed. User already exists. <a href="/">Go back</a>');
+        } else {
+            // If the user does not exist, insert the new user into the database
+            await user.insertOne({ UserName, Password });
+            console.log("User registered successfully:", { UserName, Password }); // Log successful registration
+            res.send('Registration successful!<br><a href="/">Go back to login</a>');
+        }
+    } catch (error) {
+        console.error('Error during registration:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
 
 // Route to display topics/message threads
 app.get('/topics', async (req, res) => {
-    // Retrieve all topics from the database
-    const topicsCollection = client.db('ckmdb').collection('Topics');
-    const topics = await topicsCollection.find({}).toArray();
-
+    const topic = new Topic(db.getClient());
+    const topicsList = await topic.find({});
+    
     // Render the topics page with the retrieved topics
-    let topicsList = '<h2>Message Threads</h2><ul>';
-    topics.forEach(topic => {
-        topicsList += `<li><a href="/topic/${topic._id}">${topic.name}</a></li>`;
-    });
-    topicsList += '</ul>';
-    topicsList += '<button onclick="location.href=\'/add-topic\'">Add New Topic</button>'; // Button to add a new topic
-    topicsList += '<br><a href="/">Logout</a>';
-    res.send(topicsList);
+    res.send(`
+        <h2>Message Threads</h2>
+        <ul>
+            ${topicsList.map(topic => `<li><a href="/topic/${topic._id}">${topic.name}</a></li>`).join('')}
+        </ul>
+        <button onclick="location.href='/add-topic'">Add New Topic</button>
+        <br>
+        <a href="/">Logout</a>
+    `);
 });
 
 // Route to handle adding a new topic
 app.post('/add-topic', async (req, res) => {
     const { topicName } = req.body;
-    // Logic to add the new topic to the database
-    const topicsCollection = client.db('ckmdb').collection('Topics');
-    await topicsCollection.insertOne({ name: topicName }); // Insert the new topic into the database
+    const topic = new Topic(db.getClient());
 
-    // Redirect to the topics page after adding a new topic
-    res.redirect('/topics');
+    try {
+        // Logic to add the new topic to the database
+        await topic.insertOne({ name: topicName });
+        res.redirect('/topics'); // Redirect to the topics page after adding a new topic
+    } catch (error) {
+        console.error('Error adding new topic:', error);
+        res.status(500).send('Internal Server Error');
+    }
 });
 
 // Route to display a form for adding a new topic
 app.get('/add-topic', (req, res) => {
-    // Render a form for adding a new topic
     res.send(`
         <h2>Add New Topic</h2>
         <form action="/add-topic" method="post">
@@ -140,57 +138,13 @@ app.get('/add-topic', (req, res) => {
     `);
 });
 
-// Route to display a specific topic/message thread
-app.get('/topic/:topicId', async (req, res) => {
-    const { topicId } = req.params;
-
-    try {
-        // Fetch messages for the specified topicId
-        const messagesCollection = client.db('ckmdb').collection('Messages');
-        const messages = await messagesCollection.find({ topicId }).toArray();
-
-        // Render the topic page with messages
-        let topicPage = `<h2>Topic: ${topicName}</h2>`;
-        topicPage += `<h3>Messages:</h3>`;
-        if (messages.length > 0) {
-            for (const message of messages) {
-                topicPage += `<p>User: ${message.username}, Message: ${message.message}</p>`;
-            }
-        } else {
-            topicPage += `<p>No messages for this topic.</p>`;
-        }
-
-        // Add a form to post new messages
-        topicPage += `
-            <form action="/post-message" method="post">
-                <input type="hidden" name="topicId" value="${topicId}">
-                <input type="text" name="message" placeholder="Enter your message">
-                <button type="submit">Post Message</button>
-            </form>
-        `;
-
-        res.send(topicPage);
-    } catch (error) {
-        console.error('Error fetching messages:', error);
-        res.status(500).send('Internal Server Error');
-    }
-});
-
-
-// Route to handle sending a message to a specific topic
-app.post('/post-message', async (req, res) => {
-    const { topicId, message } = req.body;
-    const userId = req.cookies.userId;
-    const username = req.cookies.username;
-
-    // Logic to save the message to the database
-    const messagesCollection = client.db('ckmdb').collection('Messages');
-    await messagesCollection.insertOne({ topicId, userId, username, message });
-
-    res.redirect(`/topic/${topicId}`);
-});
-
 // Start server
-app.listen(port, () => {
-    console.log(`Server started at http://localhost:${port}`);
-});
+db.connect()
+    .then(() => {
+        app.listen(port, () => {
+            console.log(`Server started at http://localhost:${port}`);
+        });
+    })
+    .catch(err => {
+        console.error('Error starting server:', err);
+    });
