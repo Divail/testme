@@ -150,23 +150,16 @@ app.get('/topic/:id', async (req, res) => {
     
     // Iterate over each message
     for (const message of messages) {
-        // Fetch the user details for the current message's userId
-        const usersCollection = client.db('ckmdb').collection('User');
-
-        // Display the username and message content
-        messagesList += `<p>User: ${UserName}, Message: ${message.message}</p>`;
+        // Display the message content
+        messagesList += `<p>Message: ${message.message}</p>`;
     }
-
-    // Fetch the UserName cookie to display alongside the messages
-    const userNameCookie = req.cookies.UserName;
-
     messagesList += `
         <form action="/topic/${id}" method="post">
             <label for="message">Enter your message:</label><br>
             <input type="text" id="message" name="message" required><br><br>
             <input type="submit" value="Send Message">
         </form>
-        <p>Logged in as: ${userNameCookie}</p>
+        <p>Logged in as: ${UserName}</p>
     `;
     res.send(messagesList);
 });
